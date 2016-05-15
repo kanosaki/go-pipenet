@@ -10,11 +10,9 @@ import (
 )
 
 func SimplePacket(data interface{}) *core.Packet {
-	return &core.Packet{
-		Value: map[string]interface{}{
-			"data": data,
-		},
-	}
+	pkt := core.NewPacket()
+	pkt.Set("data", data)
+	return pkt
 }
 
 func TestJson(t *testing.T) {
