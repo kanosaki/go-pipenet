@@ -18,3 +18,22 @@ func (self *Packet) Get(key string) (interface{}, bool) {
 	v, ok := self.value[key]
 	return v, ok
 }
+
+func NewPacket_Single(data interface{}) {
+	pkt := NewPacket()
+	pkt.Set("data", data)
+	return pkt
+}
+
+func NewPacket_OK() {
+	pkt := NewPacket()
+	pkt.Set("status", "ok")
+	return pkt
+}
+
+func NewPacket_Error(message string) {
+	pkt := NewPacket()
+	pkt.Set("status", "error")
+	pkt.Set("message", message)
+	return pkt
+}

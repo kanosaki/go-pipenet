@@ -23,6 +23,7 @@ type Node interface {
 }
 
 type PacketHandler func(from PortKey, data *Packet)
+type PacketBackwardHandler func(from PortKey, param *Packet) *Packet
 
 type FactoryParams interface {
 	Inlets() PipeSpace
@@ -30,6 +31,7 @@ type FactoryParams interface {
 }
 
 type PacketHandlerFactory func(param FactoryParams) (PacketHandler, error)
+type PacketBackwardHandlerFactory func(param FactoryParams) (PacketBackwardHandler, error)
 
 var (
 //DEFAULT_BACKWARD_HANDLER = func(joint *Joint, gr *Graph) (PacketHandler, error) {
@@ -46,8 +48,9 @@ type MetaJoint struct {
 	Key             JointKey
 	Graph           *MetaGraph
 	forwardHandler  PacketHandlerFactory
-	backwardHandler PacketHandlerFactory
-	fwd, back       PacketHandler
+	backwardHandler PacketBackwardHandlerFactory
+	fwd             PacketHandler
+	back            PacketBackwardHandler
 	NodeBase
 }
 
@@ -64,7 +67,7 @@ func (self *MetaJoint) Forward(fn PacketHandlerFactory) {
 	self.forwardHandler = fn
 }
 
-func (self *MetaJoint) Backward(fn PacketHandlerFactory) {
+func (self *MetaJoint) Backward(fn PacketBackwardHandlerFactory) {
 	self.backwardHandler = fn
 }
 
@@ -77,6 +80,15 @@ func (self *MetaJoint) Push(port PortKey, data *Packet) {
 		self.fwd(port, data)
 	} else {
 		fmt.Printf("UNREACHABLE: undefined port %s\n", port)
+	}
+}
+
+func (self *MetaJoint) Pull(port PortKey, param *Packet) *Packet {
+	if _, ok := self.Inlet(port); ok {
+		return self.back(port, param)
+	} else {
+		fmt.Printf("UNREACHABLE: undefined port %s\n", port)
+		return nil
 	}
 }
 

@@ -40,7 +40,8 @@ type MetaGraph struct {
 	Pipes    []*JointBridge
 	Joints   map[JointKey]*MetaJoint
 	sinks    map[PortKey]Pipe
-	Inputs   map[PortKey]Pipe
+	Inlets   map[PortKey]Pipe
+	Outlets  map[PortKey]Pipe
 	IdGen    func() JointKey
 }
 
@@ -49,7 +50,8 @@ func NewMetaGraph(univ *Universe) *MetaGraph {
 		Joints: make(map[JointKey]*MetaJoint),
 		Flavor: FlavorBetterLatency,
 		sinks: make(map[PortKey]Pipe),
-		Inputs: make(map[PortKey]Pipe),
+		Inlets: make(map[PortKey]Pipe),
+		Outlets: make(map[PortKey]Pipe),
 		Universe: univ,
 	}
 }
@@ -137,7 +139,7 @@ func (self *MetaGraph) AddInputBridge(graphPort PortKey, joint JointKey, jointPo
 	if _, ok := self.Joints[joint]; !ok {
 		return fmt.Errorf("Undefined Joint! %s", joint)
 	} else {
-		self.Inputs[graphPort] = NewDelegatePipe(self, Endpoint{joint, jointPort})
+		self.Inlets[graphPort] = NewDelegatePipe(self, Endpoint{joint, jointPort})
 		return nil
 	}
 }
@@ -160,7 +162,22 @@ func (self *MetaGraph) Sink(port PortKey, handler Pipe) {
 }
 
 // dynamic routing
-func (self *MetaGraph) Dispatch(ep Endpoint, data *Packet) {
+func (self *MetaGraph) ForwardDispatch(ep Endpoint, data *Packet) {
+	if ep.Joint == GRAPH {
+		self.dispatchOutlet(ep.Port, data)
+	} else {
+		if dst, ok := self.Joints[ep.Joint]; !ok {
+			self.TellError(nil, &DispatchFailed{
+				Destination: ep.Joint,
+				Data: data,
+			})
+		} else {
+			dst.Push(ep.Port, data)
+		}
+	}
+}
+
+func (self *MetaGraph) BackwardDispatch(ep Endpoint, data *Packet) {
 	if ep.Joint == GRAPH {
 		self.dispatchOutlet(ep.Port, data)
 	} else {
@@ -191,16 +208,24 @@ func (self *MetaGraph) TellError(on Node, err error) {
 	}
 }
 
-func (self *MetaGraph) Push(port PortKey, data *Packet) {
-	if initPipe, ok := self.Inputs[port]; ok {
+// External -- push --> Internal
+func (self *MetaGraph) Push(inlet PortKey, data *Packet) {
+	if initPipe, ok := self.Inlets[inlet]; ok {
 		if initPipe != nil {
 			initPipe.Send(data)
 		} else {
-			self.TellError(nil, fmt.Errorf("Destination unreachable %s", port))
+			self.TellError(nil, fmt.Errorf("Destination unreachable %s", inlet))
 		}
 	} else {
-		self.TellError(nil, fmt.Errorf("Undefined port %s", port))
+		self.TellError(nil, fmt.Errorf("Undefined port %s", inlet))
 	}
+}
+
+// This API basically for sending control messages.
+// 1 Internal <-- request -- External
+// 2 Internal -- response --> External
+func (self *MetaGraph) Pull(outlet PortKey, param *Packet) *Packet {
+	return nil
 }
 
 func (self *MetaGraph) Concrete() error {

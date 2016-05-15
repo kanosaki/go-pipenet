@@ -90,7 +90,7 @@ func NewDelegatePipe(graph *MetaGraph, target Endpoint) *DelegatePipe {
 }
 
 func (self *DelegatePipe) Send(data *Packet) {
-	self.delegate.Dispatch(self.target, data)
+	self.delegate.ForwardDispatch(self.target, data)
 }
 
 // call destination's method directly
