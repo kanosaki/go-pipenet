@@ -19,19 +19,19 @@ func (self *Packet) Get(key string) (interface{}, bool) {
 	return v, ok
 }
 
-func NewPacket_Single(data interface{}) {
+func NewPacket_Single(data interface{}) *Packet {
 	pkt := NewPacket()
 	pkt.Set("data", data)
 	return pkt
 }
 
-func NewPacket_OK() {
+func NewPacket_OK() *Packet {
 	pkt := NewPacket()
 	pkt.Set("status", "ok")
 	return pkt
 }
 
-func NewPacket_Error(message string) {
+func NewPacket_Error(message string) *Packet {
 	pkt := NewPacket()
 	pkt.Set("status", "error")
 	pkt.Set("message", message)

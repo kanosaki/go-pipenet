@@ -14,7 +14,13 @@ type ComponentParam interface {
 type Component interface {
 	DecodeParam(decoder *codec.Decoder, data json.RawMessage) (ComponentParam, error)
 	Name() ComponentKey
-	ConfigureJoint(metaJoint *MetaJoint, param interface{}) (*MetaJoint, error)
+	CreateController(metaJoint *MetaJoint, param interface{}) (JointController, error)
 	Save(joint *MetaJoint)
 	Restore()
+}
+
+type JointController interface {
+	Push(port PortKey, data *Packet)
+	Pull(port PortKey, param *Packet) *Packet
+	Concrete(self *MetaJoint, graph *MetaGraph) error
 }

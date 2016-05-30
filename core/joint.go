@@ -44,70 +44,35 @@ var (
 )
 
 type MetaJoint struct {
-	Component       ComponentKey
-	Key             JointKey
-	Graph           *MetaGraph
-	forwardHandler  PacketHandlerFactory
-	backwardHandler PacketBackwardHandlerFactory
-	fwd             PacketHandler
-	back            PacketBackwardHandler
+	Component  ComponentKey
+	Key        JointKey
+	graph      *MetaGraph
+	controller JointController
 	NodeBase
 }
 
 func NewMetaJoint(graph *MetaGraph, component ComponentKey, key JointKey) *MetaJoint {
 	return &MetaJoint{
-		Graph: graph,
+		graph: graph,
 		Key: key,
 		Component: component,
 		NodeBase: newNodeBase(),
 	}
 }
 
-func (self *MetaJoint) Forward(fn PacketHandlerFactory) {
-	self.forwardHandler = fn
-}
-
-func (self *MetaJoint) Backward(fn PacketBackwardHandlerFactory) {
-	self.backwardHandler = fn
-}
 
 func (self *MetaJoint) String() string {
 	return fmt.Sprintf("<%s(%s)>", self.Component, self.Key)
 }
 
 func (self *MetaJoint) Push(port PortKey, data *Packet) {
-	if _, ok := self.Inlet(port); ok {
-		self.fwd(port, data)
-	} else {
-		fmt.Printf("UNREACHABLE: undefined port %s\n", port)
-	}
+	self.controller.Push(port, data)
 }
 
 func (self *MetaJoint) Pull(port PortKey, param *Packet) *Packet {
-	if _, ok := self.Inlet(port); ok {
-		return self.back(port, param)
-	} else {
-		fmt.Printf("UNREACHABLE: undefined port %s\n", port)
-		return nil
-	}
+	return self.controller.Pull(port, param)
 }
 
 func (self *MetaJoint) Concrete(graph *MetaGraph) error {
-	if self.forwardHandler != nil {
-		fwd, err := self.forwardHandler(self)
-		if err != nil {
-			return err
-		} else {
-			self.fwd = fwd
-		}
-	}
-	if self.backwardHandler != nil {
-		back, err := self.backwardHandler(self)
-		if err != nil {
-			return err
-		} else {
-			self.back = back
-		}
-	}
-	return nil
+	return self.controller.Concrete(self, graph)
 }

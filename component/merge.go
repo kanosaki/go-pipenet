@@ -2,7 +2,6 @@ package component
 
 import (
 	"github.com/kanosaki/go-pipenet/core"
-	"fmt"
 	"encoding/json"
 	"github.com/ugorji/go/codec"
 )
@@ -25,17 +24,17 @@ func (self *Merge) Name() core.ComponentKey {
 	return KEY_MERGE
 }
 
-func (self *Merge) ConfigureJoint(mJoint *core.MetaJoint, param interface{}) (*core.MetaJoint, error) {
-	mJoint.Forward(func(param core.FactoryParams) (core.PacketHandler, error) {
-		out0, ok := param.Outlets().Lookup(core.PORT_DEFAULT_OUT)
-		if !ok {
-			return nil, fmt.Errorf("Unable find to output port %s", core.PORT_DEFAULT_OUT)
-		}
-		return func(from core.PortKey, data *core.Packet) {
-			out0.Send(data)
-		}, nil
-	})
-	return mJoint, nil
+func (self *Merge) CreateController(metaJoint *core.MetaJoint, param interface{}) (core.JointController, error) {
+	return NewDelegateController(
+		func(port core.PortKey, data *core.Packet) {
+			if out, ok := metaJoint.Outlet(core.PORT_DEFAULT_OUT); ok {
+				out.Send(data)
+			} else {
+				panic("Unreachable")
+			}
+		}, func(port core.PortKey, param *core.Packet) *core.Packet {
+			panic("NIE")
+		}), nil
 }
 
 func (self *Merge) Save(joint *core.MetaJoint) {

@@ -102,10 +102,11 @@ func (self *MetaGraph) AddJointByComponent(key JointKey, param ComponentParam) (
 		return nil, fmt.Errorf("Undefined component %s", component)
 	} else {
 		joint := self.NewJoint(component, key)
-		joint, err := comp.ConfigureJoint(joint, param)
+		jc, err := comp.CreateController(joint, param)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to create joint!")
 		} else {
+			joint.controller = jc
 			return self.AddJoint(joint)
 		}
 	}
