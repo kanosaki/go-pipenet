@@ -11,6 +11,14 @@ type ComponentParam interface {
 	Name() ComponentKey
 }
 
+type EmptyComponentParam struct {
+	name string
+}
+
+func (self *EmptyComponentParam) Name() {
+	return self.name
+}
+
 type Component interface {
 	DecodeParam(decoder *codec.Decoder, data json.RawMessage) (ComponentParam, error)
 	Name() ComponentKey

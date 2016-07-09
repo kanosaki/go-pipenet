@@ -59,9 +59,13 @@ func FromDocument(reader io.Reader, handle codec.Handle) (*core.MetaGraph, error
 			return nil, fmt.Errorf("Undefined component %s", jInfo.Component)
 		} else {
 			paramDecoder := codec.NewDecoderBytes(jInfo.Param, handle)
-			param, err = component.DecodeParam(paramDecoder, jInfo.Param)
-			if err != nil {
-				return nil, errors.Wrapf(err, "Failed to decode compoennt param for %s at %s", jInfo.Component, jKey)
+			if len(jInfo.Param) != 0 {
+				param, err = component.DecodeParam(paramDecoder, jInfo.Param)
+				if err != nil {
+					return nil, errors.Wrapf(err, "Failed to decode compoennt param for %s at %s", jInfo.Component, jKey)
+				}
+			} else {
+				param = &core.EmptyComponentParam{string(jInfo.Component)}
 			}
 		}
 		mJoint, err := mGraph.AddJointByComponent(jKey, param)

@@ -107,8 +107,7 @@ const DOUBLE_STEP_MERGE =
 		"j2": {
 			"type": "merge",
 			"inlets": ["in0", "in1"],
-			"outlets": ["out"],
-			"param": {}
+			"outlets": ["out"]
 		},
 		"j3": {
 			"type": "merge",
@@ -125,6 +124,45 @@ const DOUBLE_STEP_MERGE =
 		[["j1", "out"], ["j3", "in0"]],
 		[["j2", "out"], ["j3", "in1"]],
 		[["j3", "out"], ["", "out"]]
+	]
+}`
+
+const DOUBLE_STEP_MERGE_V2 =
+`{
+	"inlets": {
+		"in0": ["j1", "in0"],
+		"in1": ["j1", "in1"]
+	}
+	"outlets": ["out"],
+	"joints": {
+		"j1": {
+			"type": "merge",
+			"inlets": ["in0", "in1"],
+			"outlets": {
+				"out": ["j3", "in0"]
+			},
+			"param": {}
+		},
+		"j2": {
+			"type": "merge",
+			"inlets": ["in0", "in1"],
+			"outlets": {
+				"out": ["j3", "in1"]
+			},
+			"param": {}
+		},
+		"j3": {
+			"type": "merge",
+			"inlets": ["in0", "in1"],
+			"outlets": {
+				"out": ["", "out"]
+			},
+			"param": {}
+		}
+	},
+	"pipes": [
+		[["", "in0"], ["j1", "in0"]],
+		[["", "in1"], ["j1", "in1"]]
 	]
 }`
 
