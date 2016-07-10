@@ -7,6 +7,11 @@ import (
 	"github.com/pkg/errors"
 	"encoding/json"
 	"fmt"
+	"strings"
+)
+
+const (
+	ENDPOINT_SEPARATOR = ":"
 )
 
 var (
@@ -29,15 +34,19 @@ type JointInfo struct {
 
 type PipeInfo struct {
 	_struct     bool `codec:",toarray"`
-	Source      *EndpointInfo
-	Destination *EndpointInfo
+	Source      EndpointInfo
+	Destination EndpointInfo
 	Mode        string
 }
 
-type EndpointInfo struct {
-	_struct bool `codec:",toarray"`
-	Joint   core.JointKey
-	Port    core.PortKey
+type EndpointInfo string
+
+func (self EndpointInfo) Joint() core.JointKey {
+	return core.JointKey(self[:strings.Index(string(self), ENDPOINT_SEPARATOR)])
+}
+
+func (self EndpointInfo) Port() core.PortKey {
+	return core.PortKey(self[strings.Index(string(self), ENDPOINT_SEPARATOR) + 1:])
 }
 
 type ComponentParamInfo struct {
@@ -65,7 +74,7 @@ func FromDocument(reader io.Reader, handle codec.Handle) (*core.MetaGraph, error
 					return nil, errors.Wrapf(err, "Failed to decode compoennt param for %s at %s", jInfo.Component, jKey)
 				}
 			} else {
-				param = &core.EmptyComponentParam{string(jInfo.Component)}
+				param = &core.EmptyComponentParam{jInfo.Component}
 			}
 		}
 		mJoint, err := mGraph.AddJointByComponent(jKey, param)
@@ -76,7 +85,11 @@ func FromDocument(reader io.Reader, handle codec.Handle) (*core.MetaGraph, error
 		mJoint.DefineOutlet(jInfo.Outlets...)
 	}
 	for _, pInfo := range info.Pipes {
-		mGraph.AddBridge(pInfo.Source.Joint, pInfo.Source.Port, pInfo.Destination.Joint, pInfo.Destination.Port)
+		mGraph.AddBridge(
+			pInfo.Source.Joint(),
+			pInfo.Source.Port(),
+			pInfo.Destination.Joint(),
+			pInfo.Destination.Port())
 	}
 	return mGraph, nil
 }

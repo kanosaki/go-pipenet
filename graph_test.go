@@ -29,9 +29,9 @@ func TestJson(t *testing.T) {
 			}
 		},
 		"pipes": [
-			[["", "in0"], ["j1", "in0"]],
-			[["", "in1"], ["j1", "in1"]],
-			[["j1", "out"], ["", "out"]]
+			[":in0", "j1:in0"],
+			[":in1", "j1:in1"],
+			["j1:out", ":out"]
 		]
 	}`
 	assert := assert.New(t)
@@ -117,13 +117,13 @@ const DOUBLE_STEP_MERGE =
 		}
 	},
 	"pipes": [
-		[["", "in0"], ["j1", "in0"]],
-		[["", "in1"], ["j1", "in1"]],
-		[["", "in2"], ["j2", "in0"]],
-		[["", "in3"], ["j2", "in1"]],
-		[["j1", "out"], ["j3", "in0"]],
-		[["j2", "out"], ["j3", "in1"]],
-		[["j3", "out"], ["", "out"]]
+		[":in0", "j1:in0"],
+		[":in1", "j1:in1"],
+		[":in2", "j2:in0"],
+		[":in3", "j2:in1"],
+		["j1:out", "j3:in0"],
+		["j2:out", "j3:in1"],
+		["j3:out", ":out"]
 	]
 }`
 

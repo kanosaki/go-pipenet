@@ -12,11 +12,11 @@ type ComponentParam interface {
 }
 
 type EmptyComponentParam struct {
-	name string
+	ComponentName ComponentKey
 }
 
-func (self *EmptyComponentParam) Name() {
-	return self.name
+func (self *EmptyComponentParam) Name() ComponentKey {
+	return self.ComponentName
 }
 
 type Component interface {
