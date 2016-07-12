@@ -15,6 +15,15 @@ const (
 
 type Pipe interface {
 	Send(data *Packet)
+	Drain(param *DrainRequest) *DrainResponse
+}
+
+type DrainRequest struct {
+	MaxCount uint // 0 --> unlimited
+}
+
+type DrainResponse struct {
+	Items []*Packet
 }
 
 type PipeSpace map[PortKey]Pipe
@@ -93,6 +102,10 @@ func (self *DelegatePipe) Send(data *Packet) {
 	self.delegate.ForwardDispatch(self.target, data)
 }
 
+func (self *DelegatePipe) Drain(param *DrainRequest) *DrainResponse {
+	return self.delegate.BackwardDispatch(self.target, param)
+}
+
 // call destination's method directly
 type DirectPipe struct {
 	dstJoint Node
@@ -110,6 +123,10 @@ func (self DirectPipe) Send(data *Packet) {
 	self.dstJoint.Push(self.dstPort, data)
 }
 
+func (self DirectPipe) Drain(param *DrainRequest) *DrainResponse {
+	return self.dstJoint.Pull(self.dstPort, param)
+}
+
 func (self DirectPipe) Close() {
 }
 
@@ -125,6 +142,10 @@ type FuncTerminator struct {
 
 func (self *FuncTerminator) Send(data *Packet) {
 	self.handler(data)
+}
+
+func (self *FuncTerminator) Drain(param *DrainRequest) *DrainResponse {
+	panic("FuncTerminator is Output only pipe")
 }
 
 func NewFuncTerminator(handler func(*Packet)) *FuncTerminator {
@@ -145,6 +166,10 @@ func NewBufferTerminator() *BufferTerminator {
 
 func (self *BufferTerminator) Send(data *Packet) {
 	self.buf.PushBack(data)
+}
+
+func (self *BufferTerminator) Drain(param *DrainRequest) *DrainResponse {
+	panic("BufferTerminator os Output only pipe")
 }
 
 func (self *BufferTerminator) ToArray() []*Packet {

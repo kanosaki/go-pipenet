@@ -1,4 +1,4 @@
-package pipenet
+package storage
 
 import "testing"
 

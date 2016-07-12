@@ -32,7 +32,7 @@ func (self *Merge) CreateController(metaJoint *core.MetaJoint, param interface{}
 			} else {
 				panic("Unreachable")
 			}
-		}, func(port core.PortKey, param *core.Packet) *core.Packet {
+		}, func(port core.PortKey, param *core.DrainRequest) *core.DrainResponse {
 			panic("NIE")
 		}), nil
 }

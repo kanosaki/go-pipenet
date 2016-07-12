@@ -7,7 +7,10 @@ import (
 	"github.com/kanosaki/go-pipenet/core"
 	"fmt"
 	"strings"
+	"github.com/kanosaki/go-pipenet/storage"
 )
+
+var univ = core.NewUniverse(component.Builtins, storage.NewNullStorage())
 
 func SimplePacket(data interface{}) *core.Packet {
 	pkt := core.NewPacket()
@@ -35,7 +38,7 @@ func TestJson(t *testing.T) {
 		]
 	}`
 	assert := assert.New(t)
-	mGraph, err := FromJson(strings.NewReader(graphDef))
+	mGraph, err := storage.FromJson(strings.NewReader(graphDef), univ)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -169,7 +172,7 @@ const DOUBLE_STEP_MERGE_V2 =
 func TestMultiHopFromJson(t *testing.T) {
 	graphDef := DOUBLE_STEP_MERGE
 	assert := assert.New(t)
-	mGraph, err := FromJson(strings.NewReader(graphDef))
+	mGraph, err := storage.FromJson(strings.NewReader(graphDef), univ)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -193,7 +196,7 @@ func TestMultiHopFromJson(t *testing.T) {
 
 func BenchmarkMultiHop(b *testing.B) {
 	graphDef := DOUBLE_STEP_MERGE
-	mGraph, err := FromJson(strings.NewReader(graphDef))
+	mGraph, err := storage.FromJson(strings.NewReader(graphDef), univ)
 	if err != nil {
 		b.FailNow()
 	}

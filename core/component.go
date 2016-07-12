@@ -29,6 +29,6 @@ type Component interface {
 
 type JointController interface {
 	Push(port PortKey, data *Packet)
-	Pull(port PortKey, param *Packet) *Packet
+	Pull(port PortKey, param *DrainRequest) *DrainResponse
 	Concrete(self *MetaJoint, graph *MetaGraph) error
 }

@@ -20,6 +20,7 @@ const (
 
 type Node interface {
 	Push(port PortKey, data *Packet)
+	Pull(port PortKey, param *DrainRequest) *DrainResponse
 }
 
 type PacketHandler func(from PortKey, data *Packet)
@@ -69,7 +70,7 @@ func (self *MetaJoint) Push(port PortKey, data *Packet) {
 	self.controller.Push(port, data)
 }
 
-func (self *MetaJoint) Pull(port PortKey, param *Packet) *Packet {
+func (self *MetaJoint) Pull(port PortKey, param *DrainRequest) *DrainResponse {
 	return self.controller.Pull(port, param)
 }
 

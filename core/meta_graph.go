@@ -40,6 +40,7 @@ type MetaGraph struct {
 	Pipes    []*JointBridge
 	Joints   map[JointKey]*MetaJoint
 	sinks    map[PortKey]Pipe
+	pools    map[PortKey]Pipe
 	Inlets   map[PortKey]Pipe
 	Outlets  map[PortKey]Pipe
 	IdGen    func() JointKey
@@ -178,17 +179,18 @@ func (self *MetaGraph) ForwardDispatch(ep Endpoint, data *Packet) {
 	}
 }
 
-func (self *MetaGraph) BackwardDispatch(ep Endpoint, data *Packet) {
+func (self *MetaGraph) BackwardDispatch(ep Endpoint, data *DrainRequest) *DrainResponse {
 	if ep.Joint == GRAPH {
-		self.dispatchOutlet(ep.Port, data)
+		return self.pullPool(ep.Port, data)
 	} else {
 		if dst, ok := self.Joints[ep.Joint]; !ok {
 			self.TellError(nil, &DispatchFailed{
 				Destination: ep.Joint,
 				Data: data,
 			})
+			return nil // TODO return error object
 		} else {
-			dst.Push(ep.Port, data)
+			return dst.Pull(ep.Port, data)
 		}
 	}
 }
@@ -198,6 +200,15 @@ func (self *MetaGraph) dispatchOutlet(port PortKey, data *Packet) {
 		out.Send(data)
 	} else {
 		self.TellError(nil, fmt.Errorf("Undefined outlet! %s", port))
+	}
+}
+
+func (self *MetaGraph) pullPool(port PortKey, param *DrainRequest) *DrainResponse {
+	if pool, ok := self.pools[port]; ok {
+		return pool.Drain(param)
+	} else {
+		self.TellError(nil, fmt.Errorf("Missing pool! %s", port))
+		return nil
 	}
 }
 

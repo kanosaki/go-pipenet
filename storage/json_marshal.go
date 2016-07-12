@@ -1,4 +1,4 @@
-package pipenet
+package storage
 
 import (
 	"io"
@@ -54,14 +54,14 @@ type ComponentParamInfo struct {
 
 // Construct MetaGraph from Document
 
-func FromDocument(reader io.Reader, handle codec.Handle) (*core.MetaGraph, error) {
+func FromDocument(reader io.Reader, univ *core.Universe, handle codec.Handle) (*core.MetaGraph, error) {
 	dec := codec.NewDecoder(reader, handle)
 	info := &GraphInfo{}
 	err := dec.Decode(info)
 	if err != nil {
 		return nil, errors.Wrap(err, "JSON Decode failed")
 	}
-	mGraph := Create()
+	mGraph := core.NewMetaGraph(univ)
 	for jKey, jInfo := range info.Joints {
 		var param core.ComponentParam
 		if component, ok := mGraph.Universe.Components[jInfo.Component]; !ok {
@@ -94,6 +94,6 @@ func FromDocument(reader io.Reader, handle codec.Handle) (*core.MetaGraph, error
 	return mGraph, nil
 }
 
-func FromJson(reader io.Reader) (*core.MetaGraph, error) {
-	return FromDocument(reader, jsonHandle)
+func FromJson(reader io.Reader, univ *core.Universe) (*core.MetaGraph, error) {
+	return FromDocument(reader, univ, jsonHandle)
 }
