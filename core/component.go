@@ -22,7 +22,7 @@ func (self *EmptyComponentParam) Name() ComponentKey {
 type Component interface {
 	DecodeParam(decoder *codec.Decoder, data json.RawMessage) (ComponentParam, error)
 	Name() ComponentKey
-	CreateController(metaJoint *MetaJoint, param interface{}) (JointController, error)
+	CreateController(metaJoint *MetaJoint, param interface{}, graph *MetaGraph) (JointController, error)
 	Save(joint *MetaJoint)
 	Restore()
 }

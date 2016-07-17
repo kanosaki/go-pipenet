@@ -7,7 +7,7 @@ import (
 type JointKey string
 
 const (
-	JOINT_KEY_AUTO JointKey = ""
+	JOINT_ANY JointKey = "_"
 	GRAPH JointKey = ""
 )
 
@@ -49,7 +49,6 @@ type MetaJoint struct {
 	Key        JointKey
 	graph      *MetaGraph
 	controller JointController
-	NodeBase
 }
 
 func NewMetaJoint(graph *MetaGraph, component ComponentKey, key JointKey) *MetaJoint {
@@ -57,7 +56,6 @@ func NewMetaJoint(graph *MetaGraph, component ComponentKey, key JointKey) *MetaJ
 		graph: graph,
 		Key: key,
 		Component: component,
-		NodeBase: newNodeBase(),
 	}
 }
 

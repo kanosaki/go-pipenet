@@ -4,12 +4,24 @@ import (
 	"github.com/kanosaki/go-pipenet/core"
 	"github.com/kanosaki/go-pipenet/component"
 	"github.com/kanosaki/go-pipenet/storage"
+	"strings"
 )
 
-func Port(jointKey core.JointKey, portKey core.PortKey) core.Endpoint {
-	return core.Endpoint{
-		Joint: jointKey,
-		Port: portKey,
+func Port(port string) core.Endpoint {
+	chunks := strings.Split(port, ":")
+	switch len(chunks) {
+	case 1:
+		return core.Endpoint{
+			Joint: core.GRAPH,
+			Port: core.PortKey(chunks[0]),
+		}
+	case 2:
+		return core.Endpoint{
+			Joint: core.JointKey(chunks[0]),
+			Port: core.PortKey(chunks[1]),
+		}
+	default:
+		panic("Invalid port repr")
 	}
 }
 

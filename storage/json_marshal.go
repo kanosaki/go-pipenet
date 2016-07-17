@@ -62,6 +62,13 @@ func FromDocument(reader io.Reader, univ *core.Universe, handle codec.Handle) (*
 		return nil, errors.Wrap(err, "JSON Decode failed")
 	}
 	mGraph := core.NewMetaGraph(univ)
+	for _, pInfo := range info.Pipes {
+		mGraph.AddBridge(
+			pInfo.Source.Joint(),
+			pInfo.Source.Port(),
+			pInfo.Destination.Joint(),
+			pInfo.Destination.Port())
+	}
 	for jKey, jInfo := range info.Joints {
 		var param core.ComponentParam
 		if component, ok := mGraph.Universe.Components[jInfo.Component]; !ok {
@@ -77,19 +84,12 @@ func FromDocument(reader io.Reader, univ *core.Universe, handle codec.Handle) (*
 				param = &core.EmptyComponentParam{jInfo.Component}
 			}
 		}
-		mJoint, err := mGraph.AddJointByComponent(jKey, param)
+		_, err := mGraph.AddJointByComponent(jKey, param)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Error during adding joint %s", jKey)
 		}
-		mJoint.DefineInlet(jInfo.Inlets...)
-		mJoint.DefineOutlet(jInfo.Outlets...)
-	}
-	for _, pInfo := range info.Pipes {
-		mGraph.AddBridge(
-			pInfo.Source.Joint(),
-			pInfo.Source.Port(),
-			pInfo.Destination.Joint(),
-			pInfo.Destination.Port())
+		//mJoint.DefineInlet(jInfo.Inlets...)
+		//mJoint.DefineOutlet(jInfo.Outlets...)
 	}
 	return mGraph, nil
 }

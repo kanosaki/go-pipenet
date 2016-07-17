@@ -20,23 +20,20 @@ func SimplePacket(data interface{}) *core.Packet {
 
 func TestJson(t *testing.T) {
 	graphDef :=
-	`{
-		"inlets": ["in0", "in1"],
-		"outlets": ["out"],
-		"joints": {
-			"j1": {
-				"type": "merge",
-				"inlets": ["in0", "in1"],
-				"outlets": ["out"],
-				"param": {}
-			}
-		},
-		"pipes": [
-			[":in0", "j1:in0"],
-			[":in1", "j1:in1"],
-			["j1:out", ":out"]
-		]
-	}`
+		`{
+			"inlets": ["in0", "in1"],
+			"outlets": ["out"],
+			"joints": {
+				"j1": {
+					"type": "merge"
+				}
+			},
+			"pipes": [
+				[":in0", "j1:in0"],
+				[":in1", "j1:in1"],
+				["j1:out", ":out"]
+			]
+		}`
 	assert := assert.New(t)
 	mGraph, err := storage.FromJson(strings.NewReader(graphDef), univ)
 	if err != nil {
@@ -69,9 +66,9 @@ func TestMultiHop(t *testing.T) {
 	if err != nil {
 		t.FailNow()
 	}
-	merge1.DefineInlet("m_in1", "m_in2")
-	merge2.DefineInlet("m_in1", "m_in2")
-	merge3.DefineInlet("m_in1", "m_in2")
+	//merge1.DefineInlet("m_in1", "m_in2")
+	//merge2.DefineInlet("m_in1", "m_in2")
+	//merge3.DefineInlet("m_in1", "m_in2")
 	mGraph.AddBridge(core.GRAPH, "in0", merge1.Key, "m_in1")
 	mGraph.AddBridge(core.GRAPH, "in1", merge1.Key, "m_in2")
 	mGraph.AddBridge(core.GRAPH, "in2", merge2.Key, "m_in1")
@@ -97,77 +94,38 @@ func TestMultiHop(t *testing.T) {
 }
 
 const DOUBLE_STEP_MERGE =
-`{
-	"inlets": ["in0", "in1", "in2", "in3"],
-	"outlets": ["out"],
-	"joints": {
-		"j1": {
-			"type": "merge",
-			"inlets": ["in0", "in1"],
-			"outlets": ["out"],
-			"param": {}
-		},
-		"j2": {
-			"type": "merge",
-			"inlets": ["in0", "in1"],
-			"outlets": ["out"]
-		},
-		"j3": {
-			"type": "merge",
-			"inlets": ["in0", "in1"],
-			"outlets": ["out"],
-			"param": {}
-		}
-	},
-	"pipes": [
-		[":in0", "j1:in0"],
-		[":in1", "j1:in1"],
-		[":in2", "j2:in0"],
-		[":in3", "j2:in1"],
-		["j1:out", "j3:in0"],
-		["j2:out", "j3:in1"],
-		["j3:out", ":out"]
-	]
-}`
-
-const DOUBLE_STEP_MERGE_V2 =
-`{
-	"inlets": {
-		"in0": ["j1", "in0"],
-		"in1": ["j1", "in1"]
-	}
-	"outlets": ["out"],
-	"joints": {
-		"j1": {
-			"type": "merge",
-			"inlets": ["in0", "in1"],
-			"outlets": {
-				"out": ["j3", "in0"]
+	`{
+		"inlets": ["in0", "in1", "in2", "in3"],
+		"outlets": ["out"],
+		"joints": {
+			"j1": {
+				"type": "merge",
+				"inlets": ["in0", "in1"],
+				"outlets": ["out"],
+				"param": {}
 			},
-			"param": {}
-		},
-		"j2": {
-			"type": "merge",
-			"inlets": ["in0", "in1"],
-			"outlets": {
-				"out": ["j3", "in1"]
+			"j2": {
+				"type": "merge",
+				"inlets": ["in0", "in1"],
+				"outlets": ["out"]
 			},
-			"param": {}
+			"j3": {
+				"type": "merge",
+				"inlets": ["in0", "in1"],
+				"outlets": ["out"],
+				"param": {}
+			}
 		},
-		"j3": {
-			"type": "merge",
-			"inlets": ["in0", "in1"],
-			"outlets": {
-				"out": ["", "out"]
-			},
-			"param": {}
-		}
-	},
-	"pipes": [
-		[["", "in0"], ["j1", "in0"]],
-		[["", "in1"], ["j1", "in1"]]
-	]
-}`
+		"pipes": [
+			[":in0", "j1:in0"],
+			[":in1", "j1:in1"],
+			[":in2", "j2:in0"],
+			[":in3", "j2:in1"],
+			["j1:out", "j3:in0"],
+			["j2:out", "j3:in1"],
+			["j3:out", ":out"]
+		]
+	}`
 
 func TestMultiHopFromJson(t *testing.T) {
 	graphDef := DOUBLE_STEP_MERGE
@@ -192,6 +150,47 @@ func TestMultiHopFromJson(t *testing.T) {
 		SimplePacket("baz"),
 		SimplePacket("hoge"),
 	}, sink.ToArray())
+}
+
+func TestMultiHopFromJsonDrain(t *testing.T) {
+	graphDef := DOUBLE_STEP_MERGE
+	assert := assert.New(t)
+	mGraph, err := storage.FromJson(strings.NewReader(graphDef), univ)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	mGraph.Source("in0", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("foo1"),
+			SimplePacket("foo2")}))
+	mGraph.Source("in1", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("bar1"),
+			SimplePacket("bar2")}))
+	mGraph.Source("in2", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("hoge1"),
+			SimplePacket("hoge2")}))
+	mGraph.Source("in3", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("fuga1"),
+			SimplePacket("fuga2")}))
+	if mGraph.Concrete() != nil {
+		t.FailNow()
+	}
+	res := mGraph.Pull(core.PortKey("out"), &core.DrainRequest{8})
+	assert.NotNil(res, "Empty response")
+	assert.Equal([]*core.Packet{
+		SimplePacket("foo1"),
+		SimplePacket("foo2"),
+		SimplePacket("bar1"),
+		SimplePacket("bar2"),
+		SimplePacket("hoge1"),
+		SimplePacket("hoge2"),
+		SimplePacket("fuga1"),
+		SimplePacket("fuga2"),
+	}, res.Items)
 }
 
 func BenchmarkMultiHop(b *testing.B) {

@@ -10,6 +10,7 @@ type PortKey string
 
 const (
 	PORT_ANY PortKey = "_"
+	PORT_EMPTY PortKey = ""
 	PORT_DEFAULT_OUT PortKey = "out"
 	PORT_DEFAULT_IN PortKey = "in"
 )
@@ -19,8 +20,8 @@ type Endpoint struct {
 	Port  PortKey
 }
 
-func (self Endpoint) Repr() string {
-	return fmt.Sprintf("[%s:%s]", self.Joint, self.Port)
+func (mg Endpoint) String() string {
+	return fmt.Sprintf("[%s:%s]", mg.Joint, mg.Port)
 }
 
 type PerformanceFlavor int
@@ -41,8 +42,6 @@ type MetaGraph struct {
 	Joints   map[JointKey]*MetaJoint
 	sinks    map[PortKey]Pipe
 	pools    map[PortKey]Pipe
-	Inlets   map[PortKey]Pipe
-	Outlets  map[PortKey]Pipe
 	IdGen    func() JointKey
 }
 
@@ -51,24 +50,23 @@ func NewMetaGraph(univ *Universe) *MetaGraph {
 		Joints: make(map[JointKey]*MetaJoint),
 		Flavor: FlavorBetterLatency,
 		sinks: make(map[PortKey]Pipe),
-		Inlets: make(map[PortKey]Pipe),
-		Outlets: make(map[PortKey]Pipe),
+		pools: make(map[PortKey]Pipe),
 		Universe: univ,
 	}
 }
 
-func (self *MetaGraph) nextID() JointKey {
-	if self.IdGen == nil {
-		self.IdGen = numericIDGenerator()
+func (mg *MetaGraph) nextID() JointKey {
+	if mg.IdGen == nil {
+		mg.IdGen = numericIDGenerator()
 	}
-	prevID := JOINT_KEY_AUTO
+	prevID := JOINT_ANY
 	for {
-		candidate := self.IdGen()
+		candidate := mg.IdGen()
 		if candidate == prevID {
 			// prevent infinite loop
 			panic(fmt.Sprintf("Invalid ID gen! %s == %s", candidate, prevID))
 		}
-		if _, ok := self.Joints[candidate]; !ok {
+		if _, ok := mg.Joints[candidate]; !ok {
 			return candidate
 		}
 		prevID = candidate
@@ -76,143 +74,114 @@ func (self *MetaGraph) nextID() JointKey {
 	panic("Never here")
 }
 
-func (self *MetaGraph) NewJoint(component ComponentKey, key JointKey) *MetaJoint {
-	joint := NewMetaJoint(self, component, key)
+func (mg *MetaGraph) NewJoint(component ComponentKey, key JointKey) *MetaJoint {
+	joint := NewMetaJoint(mg, component, key)
 	return joint
 }
 
-func (self *MetaGraph) AddJoint(joint *MetaJoint) (*MetaJoint, error) {
+func (mg *MetaGraph) AddJoint(joint *MetaJoint) (*MetaJoint, error) {
 	if len(joint.Key) == 0 {
-		joint.Key = self.nextID()
-	} else if _, ok := self.Joints[joint.Key]; ok {
+		joint.Key = mg.nextID()
+	} else if _, ok := mg.Joints[joint.Key]; ok {
 		return nil, fmt.Errorf("Duplicate JointKey! %s", joint.Key)
 	}
-	if len(joint.outlets) == 0 {
-		joint.outlets[PORT_DEFAULT_OUT] = nil
-	}
-	if len(joint.inlets) == 0 {
-		joint.inlets[PORT_DEFAULT_IN] = nil
-	}
-	self.Joints[joint.Key] = joint
+	mg.Joints[joint.Key] = joint
 	return joint, nil
 }
 
-func (self *MetaGraph) AddJointByComponent(key JointKey, param ComponentParam) (*MetaJoint, error) {
+func (mg *MetaGraph) AddJointByComponent(key JointKey, param ComponentParam) (*MetaJoint, error) {
 	component := param.Name()
-	if comp, ok := self.Universe.Components[component]; !ok {
+	if comp, ok := mg.Universe.Components[component]; !ok {
 		return nil, fmt.Errorf("Undefined component %s", component)
 	} else {
-		joint := self.NewJoint(component, key)
-		jc, err := comp.CreateController(joint, param)
+		joint := mg.NewJoint(component, key)
+		jc, err := comp.CreateController(joint, param, mg)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to create joint!")
 		} else {
 			joint.controller = jc
-			return self.AddJoint(joint)
+			return mg.AddJoint(joint)
 		}
 	}
 }
 
-func (self *MetaGraph) AddPipeBridge(from Endpoint, to Endpoint) error {
-	self.Pipes = append(self.Pipes, &JointBridge{
+func (mg *MetaGraph) AddPipeBridge(from Endpoint, to Endpoint) error {
+	mg.Pipes = append(mg.Pipes, &JointBridge{
 		Source: from,
 		Destination: to,
-		Mode: FlavorToMode(self.Flavor),
+		Mode: FlavorToMode(mg.Flavor),
 	})
-	if targetJoint, ok := self.Joints[from.Joint]; !ok {
-		return fmt.Errorf("Undefined joint! %s", from.Joint)
-	} else {
-		targetJoint.SetOutlet(from.Port, NewDelegatePipe(self, to))
-		return nil
-	}
+	return nil
 }
 
-func (self *MetaGraph) AddBridge(fromJoint JointKey, fromPort PortKey, toJoint JointKey, toPort PortKey) {
-	if fromJoint == GRAPH {
-		self.AddInputBridge(fromPort, toJoint, toPort)
-	} else if toJoint == GRAPH {
-		self.AddOutputBridge(fromJoint, fromPort, toPort)
-	} else {
-		self.AddPipeBridge(Endpoint{fromJoint, fromPort}, Endpoint{toJoint, toPort})
-	}
+func (mg *MetaGraph) AddBridge(fromJoint JointKey, fromPort PortKey, toJoint JointKey, toPort PortKey) {
+	mg.AddPipeBridge(Endpoint{fromJoint, fromPort}, Endpoint{toJoint, toPort})
 }
 
-func (self *MetaGraph) AddInputBridge(graphPort PortKey, joint JointKey, jointPort PortKey) error {
-	if _, ok := self.Joints[joint]; !ok {
-		return fmt.Errorf("Undefined Joint! %s", joint)
-	} else {
-		self.Inlets[graphPort] = NewDelegatePipe(self, Endpoint{joint, jointPort})
-		return nil
-	}
+func (mg *MetaGraph) SinkHandler(port PortKey, handler func(*Packet)) {
+	mg.Sink(port, NewFuncTerminator(handler))
 }
 
-func (self *MetaGraph) AddOutputBridge(joint JointKey, jointPort PortKey, graphPort PortKey) error {
-	if targetJoint, ok := self.Joints[joint]; !ok {
-		return fmt.Errorf("Undefined Joint! %s", joint)
-	} else {
-		targetJoint.SetOutlet(jointPort, NewDelegatePipe(self, Endpoint{GRAPH, graphPort}))
-		return nil
-	}
+func (mg *MetaGraph) Sink(port PortKey, handler Pipe) {
+	mg.sinks[port] = handler
 }
 
-func (self *MetaGraph) SinkHandler(port PortKey, handler func(*Packet)) {
-	self.Sink(port, NewFuncTerminator(handler))
-}
-
-func (self *MetaGraph) Sink(port PortKey, handler Pipe) {
-	self.sinks[port] = handler
+func (mg *MetaGraph) Source(port PortKey, handler Pipe) {
+	mg.pools[port] = handler
 }
 
 // dynamic routing
-func (self *MetaGraph) ForwardDispatch(ep Endpoint, data *Packet) {
+// for internal use
+func (mg *MetaGraph) SendToNode(ep Endpoint, data *Packet) {
 	if ep.Joint == GRAPH {
-		self.dispatchOutlet(ep.Port, data)
+		mg.dispatchOutlet(ep.Port, data)
 	} else {
-		if dst, ok := self.Joints[ep.Joint]; !ok {
-			self.TellError(nil, &DispatchFailed{
+		if downNode, ok := mg.Joints[ep.Joint]; !ok {
+			mg.TellError(nil, &DispatchFailed{
 				Destination: ep.Joint,
 				Data: data,
 			})
 		} else {
-			dst.Push(ep.Port, data)
+			downNode.Push(ep.Port, data)
 		}
 	}
 }
 
-func (self *MetaGraph) BackwardDispatch(ep Endpoint, data *DrainRequest) *DrainResponse {
+// for internal use
+func (mg *MetaGraph) DrainFromNode(ep Endpoint, data *DrainRequest) *DrainResponse {
 	if ep.Joint == GRAPH {
-		return self.pullPool(ep.Port, data)
+		return mg.pullPool(ep.Port, data)
 	} else {
-		if dst, ok := self.Joints[ep.Joint]; !ok {
-			self.TellError(nil, &DispatchFailed{
+		if upNode, ok := mg.Joints[ep.Joint]; !ok {
+			mg.TellError(nil, &DispatchFailed{
 				Destination: ep.Joint,
 				Data: data,
 			})
 			return nil // TODO return error object
 		} else {
-			return dst.Pull(ep.Port, data)
+			return upNode.Pull(ep.Port, data)
 		}
 	}
 }
 
-func (self *MetaGraph) dispatchOutlet(port PortKey, data *Packet) {
-	if out, ok := self.sinks[port]; ok {
+func (mg *MetaGraph) dispatchOutlet(port PortKey, data *Packet) {
+	if out, ok := mg.sinks[port]; ok {
 		out.Send(data)
 	} else {
-		self.TellError(nil, fmt.Errorf("Undefined outlet! %s", port))
+		mg.TellError(nil, fmt.Errorf("Undefined outlet! %s", port))
 	}
 }
 
-func (self *MetaGraph) pullPool(port PortKey, param *DrainRequest) *DrainResponse {
-	if pool, ok := self.pools[port]; ok {
+func (mg *MetaGraph) pullPool(port PortKey, param *DrainRequest) *DrainResponse {
+	if pool, ok := mg.pools[port]; ok {
 		return pool.Drain(param)
 	} else {
-		self.TellError(nil, fmt.Errorf("Missing pool! %s", port))
+		mg.TellError(nil, fmt.Errorf("Missing pool! %s", port))
 		return nil
 	}
 }
 
-func (self *MetaGraph) TellError(on Node, err error) {
+func (mg *MetaGraph) TellError(on Node, err error) {
 	if on == nil {
 		fmt.Fprintf(os.Stderr, "ERR(GRAPH): %v\n", err)
 	} else {
@@ -221,28 +190,62 @@ func (self *MetaGraph) TellError(on Node, err error) {
 }
 
 // External -- push --> Internal
-func (self *MetaGraph) Push(inlet PortKey, data *Packet) {
-	if initPipe, ok := self.Inlets[inlet]; ok {
-		if initPipe != nil {
-			initPipe.Send(data)
-		} else {
-			self.TellError(nil, fmt.Errorf("Destination unreachable %s", inlet))
-		}
+func (mg *MetaGraph) Push(inlet PortKey, data *Packet) {
+	initBridges := mg.SelectBridges(GRAPH, inlet, JOINT_ANY, PORT_ANY)
+	if len(initBridges) > 0 {
+		mg.SendToNode(initBridges[0].Destination, data)
 	} else {
-		self.TellError(nil, fmt.Errorf("Undefined port %s", inlet))
+		mg.TellError(nil, fmt.Errorf("Destination unreachable %s", inlet))
 	}
 }
 
 // This API basically for sending control messages.
 // 1 Internal <-- request -- External
 // 2 Internal -- response --> External
-func (self *MetaGraph) Pull(outlet PortKey, param *Packet) *Packet {
-	return nil
+func (mg *MetaGraph) Pull(outlet PortKey, param *DrainRequest) *DrainResponse {
+	initBridges := mg.SelectBridges(JOINT_ANY, PORT_ANY, GRAPH, outlet)
+	if len(initBridges) > 0 {
+		return mg.DrainFromNode(initBridges[0].Source, param)
+	} else {
+		mg.TellError(nil, fmt.Errorf("Destination unreachable %s", outlet))
+		return nil
+	}
 }
 
-func (self *MetaGraph) Concrete() error {
-	for _, j := range self.Joints {
-		err := j.Concrete(self)
+func (mg *MetaGraph) SelectBridges(fromJoint JointKey, fromPort PortKey, toJoint JointKey, toPort PortKey) []*JointBridge {
+	var ret []*JointBridge
+	for _, br := range mg.Pipes {
+		if (fromJoint == JOINT_ANY || fromJoint == br.Source.Joint) &&
+			(fromPort == PORT_ANY || fromPort == br.Source.Port) &&
+			(toJoint == JOINT_ANY || toJoint == br.Destination.Joint) &&
+			(toPort == PORT_ANY || toPort == br.Destination.Port) {
+			ret = append(ret, br)
+		}
+	}
+	return ret
+}
+
+func (mg *MetaGraph) JointOutlets(jointKey JointKey) []Pipe {
+	bridges := mg.SelectBridges(jointKey, PORT_ANY, JOINT_ANY, PORT_ANY)
+	ret := make([]Pipe, 0, len(bridges))
+	for _, br := range bridges {
+		ret = append(ret, NewDelegatePipe(mg, br.Source, br.Destination))
+	}
+	return ret
+}
+
+func (mg *MetaGraph) JointInlets(jointKey JointKey) []Pipe {
+	bridges := mg.SelectBridges(JOINT_ANY, PORT_ANY, jointKey, PORT_ANY)
+	ret := make([]Pipe, 0, len(bridges))
+	for _, br := range bridges {
+		ret = append(ret, NewDelegatePipe(mg, br.Source, br.Destination))
+	}
+	return ret
+}
+
+func (mg *MetaGraph) Concrete() error {
+	for _, j := range mg.Joints {
+		err := j.Concrete(mg)
 		if err != nil {
 			return err
 		}

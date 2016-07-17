@@ -19,7 +19,7 @@ type Pipe interface {
 }
 
 type DrainRequest struct {
-	MaxCount uint // 0 --> unlimited
+	Count int // 0 --> unlimited
 }
 
 type DrainResponse struct {
@@ -87,23 +87,25 @@ func NewMetaPipe(flavor PerformanceFlavor) *JointBridge {
 }
 
 type DelegatePipe struct {
-	delegate *MetaGraph
-	target   Endpoint
+	delegate    *MetaGraph
+	destination Endpoint
+	source      Endpoint
 }
 
-func NewDelegatePipe(graph *MetaGraph, target Endpoint) *DelegatePipe {
+func NewDelegatePipe(graph *MetaGraph, src, dst Endpoint) *DelegatePipe {
 	return &DelegatePipe{
 		delegate: graph,
-		target: target,
+		destination: dst,
+		source: src,
 	}
 }
 
-func (self *DelegatePipe) Send(data *Packet) {
-	self.delegate.ForwardDispatch(self.target, data)
+func (dp *DelegatePipe) Send(data *Packet) {
+	dp.delegate.SendToNode(dp.destination, data)
 }
 
-func (self *DelegatePipe) Drain(param *DrainRequest) *DrainResponse {
-	return self.delegate.BackwardDispatch(self.target, param)
+func (dp *DelegatePipe) Drain(param *DrainRequest) *DrainResponse {
+	return dp.delegate.DrainFromNode(dp.source, param)
 }
 
 // call destination's method directly
@@ -188,3 +190,30 @@ func (self *BufferTerminator) Len() int {
 	return self.buf.Len()
 }
 
+type BufferSource struct {
+	Items []*Packet
+}
+
+func NewBufferSource(items []*Packet) *BufferSource {
+	return &BufferSource{
+		Items: items,
+	}
+}
+
+func (bs *BufferSource) Send(data *Packet) {
+	panic("BufferSource does not support push items.")
+}
+
+func (bs *BufferSource) Drain(param *DrainRequest) *DrainResponse {
+	var ret []*Packet
+	if param.Count < len(bs.Items) {
+		ret = bs.Items[param.Count:]
+		bs.Items = bs.Items[:param.Count]
+	} else {
+		ret = bs.Items
+		bs.Items = bs.Items[:0]
+	}
+	return &DrainResponse{
+		Items: ret,
+	}
+}
