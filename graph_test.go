@@ -152,7 +152,7 @@ func TestMultiHopFromJson(t *testing.T) {
 	}, sink.ToArray())
 }
 
-func TestMultiHopFromJsonDrain(t *testing.T) {
+func TestMultiHopFromJsonDrainJust(t *testing.T) {
 	graphDef := DOUBLE_STEP_MERGE
 	assert := assert.New(t)
 	mGraph, err := storage.FromJson(strings.NewReader(graphDef), univ)
@@ -189,6 +189,92 @@ func TestMultiHopFromJsonDrain(t *testing.T) {
 		SimplePacket("hoge1"),
 		SimplePacket("hoge2"),
 		SimplePacket("fuga1"),
+		SimplePacket("fuga2"),
+	}, res.Items)
+}
+
+func TestMultiHopFromJsonDrainEnoughSource(t *testing.T) {
+	graphDef := DOUBLE_STEP_MERGE
+	assert := assert.New(t)
+	mGraph, err := storage.FromJson(strings.NewReader(graphDef), univ)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	mGraph.Source("in0", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("foo1"),
+			SimplePacket("foo2"),
+			SimplePacket("foo3"),
+			SimplePacket("foo4")}))
+	mGraph.Source("in1", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("bar1"),
+			SimplePacket("bar2")}))
+	mGraph.Source("in2", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("hoge1"),
+			SimplePacket("hoge2"),
+			SimplePacket("hoge3")}))
+	mGraph.Source("in3", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("fuga1"),
+			SimplePacket("fuga2"),
+			SimplePacket("fuga3")}))
+	if mGraph.Concrete() != nil {
+		t.FailNow()
+	}
+	res := mGraph.Pull(core.PortKey("out"), &core.DrainRequest{8})
+	assert.NotNil(res, "Empty response")
+	assert.Equal([]*core.Packet{
+		SimplePacket("foo1"),
+		SimplePacket("foo2"),
+		SimplePacket("foo3"),
+		SimplePacket("foo4"),
+		SimplePacket("bar1"),
+		SimplePacket("bar2"),
+		SimplePacket("hoge1"),
+		SimplePacket("hoge2"),
+	}, res.Items)
+	res = mGraph.Pull(core.PortKey("out"), &core.DrainRequest{8})
+	assert.NotNil(res, "Empty response")
+	assert.Equal([]*core.Packet{
+		SimplePacket("hoge3"),
+		SimplePacket("fuga1"),
+		SimplePacket("fuga2"),
+		SimplePacket("fuga3"),
+	}, res.Items)
+}
+
+func TestMultiHopFromJsonDrainShortSource(t *testing.T) {
+	graphDef := DOUBLE_STEP_MERGE
+	assert := assert.New(t)
+	mGraph, err := storage.FromJson(strings.NewReader(graphDef), univ)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	mGraph.Source("in0", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("foo2")}))
+	mGraph.Source("in1", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("bar2")}))
+	mGraph.Source("in2", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("hoge2")}))
+	mGraph.Source("in3", core.NewBufferSource(
+		[]*core.Packet{
+			SimplePacket("fuga2")}))
+	if mGraph.Concrete() != nil {
+		t.FailNow()
+	}
+	res := mGraph.Pull(core.PortKey("out"), &core.DrainRequest{8})
+	assert.NotNil(res, "Empty response")
+	assert.Equal([]*core.Packet{
+		SimplePacket("foo2"),
+		SimplePacket("bar2"),
+		SimplePacket("hoge2"),
 		SimplePacket("fuga2"),
 	}, res.Items)
 }

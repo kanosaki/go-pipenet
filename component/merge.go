@@ -43,24 +43,32 @@ func (m *Merge) DecodeParam(decoder *codec.Decoder, data json.RawMessage) (core.
 }
 
 type MergeController struct {
-	inlets        []core.Pipe
-	outlets       []core.Pipe
-	currentOutput int
-	currentInlet  int
+	inlets         []core.Pipe
+	outlets        []core.Pipe
+	currentOutput  int
+	currentInlet   int
+	oddsEndsBuffer []*core.Packet
 }
 
 func (mc *MergeController) Push(port core.PortKey, data *core.Packet) {
+	// Round robbin
 	// set next outlet
 	mc.currentOutput = (mc.currentOutput + 1) % len(mc.outlets)
 	mc.outlets[mc.currentOutput].Send(data)
 }
 
 func (mc *MergeController) Pull(port core.PortKey, param *core.DrainRequest) *core.DrainResponse {
-	var ret []*core.Packet
+	ret := mc.oddsEndsBuffer
 	for len(ret) < param.Count && len(mc.inlets) > mc.currentInlet {
 		resFromUpstream := mc.inlets[mc.currentInlet].Drain(param)
 		if resFromUpstream != nil && len(resFromUpstream.Items) > 0 {
-			ret = append(ret, resFromUpstream.Items...)
+			if len(resFromUpstream.Items) + len(ret) > param.Count {
+				cutAt := param.Count - len(ret)
+				ret = append(ret, resFromUpstream.Items[:cutAt]...)
+				mc.oddsEndsBuffer = resFromUpstream.Items[cutAt:]
+			} else {
+				ret = append(ret, resFromUpstream.Items...)
+			}
 		} else {
 			mc.currentInlet += 1
 		}
